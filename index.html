@@ -634,8 +634,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradi
         <div style="margin-top:20px;">
           <div class="section-title">Data management</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
-            <button onclick="exportData()" style="padding:10px;background:none;border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text2);font-family:'Manrope',sans-serif;font-size:13px;cursor:pointer;">Export JSON backup</button>
-            <button onclick="clearData()" style="padding:10px;background:none;border:1px solid rgba(232,126,126,0.2);border-radius:var(--r-sm);color:var(--red);font-family:'Manrope',sans-serif;font-size:13px;cursor:pointer;">Clear all data</button>
+            <button onclick="exportData()" style="padding:10px;background:none;border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text2);font-family:'Manrope',sans-serif;font-size:13px;cursor:pointer;">⬇ Export JSON backup</button>
+            <button onclick="document.getElementById('importFileInput').click()" style="padding:10px;background:none;border:1px solid rgba(126,232,176,0.25);border-radius:var(--r-sm);color:var(--green);font-family:'Manrope',sans-serif;font-size:13px;cursor:pointer;">⬆ Import JSON backup</button>
+            <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importData(event)"/>
+            <div id="importMsg" style="font-size:12px;text-align:center;font-family:'DM Mono',monospace;min-height:14px;"></div>
+            <button onclick="clearData()" style="padding:10px;background:none;border:1px solid rgba(232,126,126,0.2);border-radius:var(--r-sm);color:var(--red);font-family:'Manrope',sans-serif;font-size:13px;cursor:pointer;">🗑 Clear all data</button>
           </div>
         </div>
       </div>
@@ -2148,6 +2151,39 @@ function saveBudget(){
 function exportData(){
   const b=new Blob([JSON.stringify({txns,budget,openingBals,invCurrentValues,invHistory},null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='sfinance-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+}
+function importData(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const msg=document.getElementById('importMsg');
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!data||typeof data!=='object'){throw new Error('Invalid format');}
+      if(!confirm('This will REPLACE all current data with the backup. Continue?')){
+        e.target.value='';return;
+      }
+      if(Array.isArray(data.txns)) txns=data.txns;
+      if(typeof data.budget==='number') budget=data.budget;
+      if(data.openingBals&&typeof data.openingBals==='object') openingBals=data.openingBals;
+      if(data.accountBudgets&&typeof data.accountBudgets==='object') accountBudgets=data.accountBudgets;
+      if(data.invCurrentValues&&typeof data.invCurrentValues==='object') invCurrentValues=data.invCurrentValues;
+      if(Array.isArray(data.invHistory)) invHistory=data.invHistory;
+      // Backfill toAcct on imported Self_Transfer txns
+      txns.forEach(t=>{if(t.type==='Self_Transfer'&&!t.toAcct){const dest=resolveToAcct(t.cat);if(dest)t.toAcct=dest;}});
+      save();updateAll();buildAcctBar();initSettings();
+      msg.style.color='var(--green)';
+      msg.textContent='✓ Imported '+txns.length+' transactions successfully!';
+      setTimeout(()=>{if(msg)msg.textContent='';},3500);
+    }catch(err){
+      msg.style.color='var(--red)';
+      msg.textContent='✕ Import failed: '+err.message;
+      setTimeout(()=>{if(msg)msg.textContent='';},3500);
+    }
+    e.target.value=''; // reset so same file can be re-imported
+  };
+  reader.readAsText(file);
 }
 function clearData(){if(confirm('Delete ALL transactions? Cannot be undone.')){txns=[];save();updateAll();buildAcctBar();}}
 
