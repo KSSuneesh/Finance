@@ -1168,8 +1168,13 @@ function acctBalance(acctId){
   const ob=openingBals[acctId]||0;
   const all=txns.filter(t=>t.acct===acctId);
   const inflow=all.filter(t=>INFLOW_TYPES.includes(t.type)).reduce((s,t)=>s+t.amount,0);
-  // Outflows: expenses, savings, investments, debt — but NOT Self_Transfer (handled separately below)
-  const outflow=all.filter(t=>!INFLOW_TYPES.includes(t.type)&&t.type!=='Self_Transfer').reduce((s,t)=>s+t.amount,0);
+  // Investments are tracked separately and must not change the bank balance.
+  // Self_Transfer is handled separately below.
+  const outflow=all.filter(t=>
+    !INFLOW_TYPES.includes(t.type)&&
+    t.type!=='Self_Transfer'&&
+    t.type!=='Investments'
+  ).reduce((s,t)=>s+t.amount,0);
   // Self_Transfer OUT: transfers originating from this account
   const transferOut=all.filter(t=>t.type==='Self_Transfer'&&t.toAcct!==acctId).reduce((s,t)=>s+t.amount,0);
   // Self_Transfer IN: transfers where this account is the destination
