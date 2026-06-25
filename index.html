@@ -725,7 +725,7 @@ const CATS = {
   Repayment:        {subs:['Credited to Account','Cash Repayment','Other Repayment'],               color:'#a8e87e', emoji:'↩️'},
   Fixed_Expense:    {subs:['Rent','Bill','Home','Palakkal'],                                        color:'#e87e7e', emoji:'📌'},
   Variable_Expense: {subs:['Grocery','Tea & Snacks','Breakfast','Lunch','Dinner','Entertainment','Travel','Petrol','OTT','Others','Lending','Home Spendings','Chips / Side dish','Waste Spendings'], color:'#e8c97e', emoji:'🛒'},
-  Investments:      {subs:['SIP','Others','RD','Aura Gold - Silver','Aura Gold - Gold','Ind- Indian Stock','Ind - US Stock','Bond','Other Stocks','Crypto'], color:'#b07ee8', emoji:'📈'},
+  Investments:      {subs:['SIP','Others','Kotak','RD','Aura Gold - Silver','Aura Gold - Gold','Ind- Indian Stock','Ind - US Stock','Digi Silver','Bond','US Stocks','Crypto'], color:'#b07ee8', emoji:'📈'},
   Debt:             {subs:['EM','Car Loan'],                                                        color:'#e8a87e', emoji:'💳'},
   Self_Transfer:    {subs:['Canara to SBI','SBI to Canara','Canara to HDFC','HDFC to Canara','Canara to CUB','CUB to Canara','Canara to KOTAK','KOTAK to Canara','Canara to CASH','CASH to Canara','SBI to HDFC','HDFC to SBI','SBI to CUB','CUB to SBI','SBI to KOTAK','KOTAK to SBI','SBI to CASH','CASH to SBI','HDFC to CUB','CUB to HDFC','HDFC to KOTAK','KOTAK to HDFC','HDFC to CASH','CASH to HDFC','CUB to KOTAK','KOTAK to CUB','CUB to CASH','CASH to CUB','KOTAK to CASH','CASH to KOTAK','Other Transfer'], color:'#e87eb5', emoji:'🔄'},
 };
@@ -1168,12 +1168,14 @@ function acctBalance(acctId){
   const ob=openingBals[acctId]||0;
   const all=txns.filter(t=>t.acct===acctId);
   const inflow=all.filter(t=>INFLOW_TYPES.includes(t.type)).reduce((s,t)=>s+t.amount,0);
-  // Investments are tracked separately and must not change the bank balance.
+  // Investment-tab records are tracking-only and must not change the bank balance.
+  // Investments explicitly entered through Transactions remain normal bank outflows.
+  // Older unmarked investment records default to tracking-only for compatibility.
   // Self_Transfer is handled separately below.
   const outflow=all.filter(t=>
     !INFLOW_TYPES.includes(t.type)&&
     t.type!=='Self_Transfer'&&
-    t.type!=='Investments'
+    !(t.type==='Investments'&&t.source!=='transaction_tab')
   ).reduce((s,t)=>s+t.amount,0);
   // Self_Transfer OUT: transfers originating from this account
   const transferOut=all.filter(t=>t.type==='Self_Transfer'&&t.toAcct!==acctId).reduce((s,t)=>s+t.amount,0);
@@ -1524,7 +1526,8 @@ function addTx(){
     cat,
     acct:document.getElementById('fAcct').value,
     mode:document.getElementById('fMode').value,
-    date
+    date,
+    source:'transaction_tab'
   };
   // For Self_Transfer, get destination from dropdown first, fallback to category name resolution
   if(txType==='Self_Transfer'){
@@ -2258,7 +2261,8 @@ function addInvLogEntry(){
     cat:instrument,
     acct,
     mode:'Bank Transfer',
-    date
+    date,
+    source:'investment_tab'
   };
   txns.unshift(txObj);
   save();updateAll();buildAcctBar();
